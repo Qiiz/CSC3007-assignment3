@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      .country.selected {
+        outline: rgb(255, 108, 108);
+        stroke: rgb(255, 108, 108);
+        stroke-width: 5px;
+      }
+
+      .tooltip {
+        position: bottom;
+        background: rgb(255, 255, 255);
+      }
+      body {
+        background-color: rgb(213, 216, 216);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>A choropleth visualization with subsdistricts of population in SG</h1>
+    <svg></svg>
+    <div class="tooltip"></div>
+    <div id="legend4" style="display: inline-block"></div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <script>
+      let width = 1000,
+        height = 600
+
+      let svg = d3.select('svg').attr('viewBox', '0 0 ' + width + ' ' + height)
+
+      var colorScale = d3
+        .scaleThreshold()
+        .domain([800, 16000, 24000, 32000, 400000, 48000, 56000, 64000])
+        .range(d3.schemeBlues[8])
+
+      // Load external data
+      Promise.all([d3.json('sgmap.json'), d3.csv('population2021.csv')]).then(
+        (data) => {
+          console.log(data[0])
+          console.log(data[1])
+
+          // Map and projection
+          var projection = d3
+            .geoMercator()
+            .center([103.851959, 1.29027])
+            .fitExtent(
+              [
+                [20, 20],
+                [980, 580],
+              ],
+              data[0]
+            )
+
+          let geopath = d3.geoPath().projection(projection)
+
+          svg
+            .append('g')
+            .selectAll('path')
+            .data(data[0].features)
+            .enter()
+            .append('path')
+            // draw each country
+            .attr('d', d3.geoPath().projection(projection))
+            .attr('class', 'country')
+            // set the color of each country
+            .attr('fill', function (d) {
+              index = data[1].findIndex(
+                (x) => x.Subzone.toUpperCase() === d.properties.Name
+              )
+              if (index != -1) {
+                value = parseInt(data[1][index].Population)
+                if (!isNaN(value)) {
+                  total = data[1][index].Population
+                  return colorScale(total)
+                }
+              }
+              return 'black'
+            })
+
+            // match the geopath data with the dataset in the population2021
+            .on('mouseover', (event, d) => {
+              index = data[1].findIndex(
+                (x) => x.Subzone.toUpperCase() === d.properties.Name
+              )
+              d3.select('.tooltip')
+                .text(data[1][index].Subzone + ' ' + data[1][index].Population)
+                .style('class', 'tooltip')
+                .style('left', event.pageX + 'px')
+                .style('top', event.pageY + 'px')
+
+              d3.select(event.currentTarget).classed('selected', true)
+            })
+
+            .on('mouseout', (event, d) => {
+              d3.select('.tooltip').text('')
+
+              d3.select(event.currentTarget).classed('selected', false)
+            })
+        }
+      )
+    </script>
+  </body>
+</html>
